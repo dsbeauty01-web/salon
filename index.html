@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AI Receptionist</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: #0a0a0f;
+      color: #e8e8ec;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+
+    #app {
+      width: 100%;
+      max-width: 520px;
+      display: flex;
+      flex-direction: column;
+      height: calc(100vh - 40px);
+    }
+
+    /* Avatar */
+    #avatar-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px 0;
+      flex-shrink: 0;
+    }
+    h1 {
+      font-size: 1rem;
+      font-weight: 500;
+      color: #999;
+      margin-bottom: 10px;
+    }
+    #avatar-wrap {
+      width: 200px; height: 200px;
+      border-radius: 50%;
+      overflow: hidden;
+      background: #111;
+      border: 2px solid #222;
+      box-shadow: 0 0 40px rgba(212,175,55,0.1);
+    }
+    #avatar-video { width: 100%; height: 100%; object-fit: cover; }
+    #status {
+      font-size: .75rem;
+      color: #666;
+      margin-top: 8px;
+      text-align: center;
+    }
+
+    /* Chat area */
+    #chat-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      scrollbar-width: thin;
+      scrollbar-color: #222 transparent;
+    }
+    #chat-area::-webkit-scrollbar { width: 4px; }
+    #chat-area::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+
+    .msg {
+      max-width: 85%;
+      padding: 10px 14px;
+      border-radius: 16px;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      word-wrap: break-word;
+      animation: fadeIn 0.25s ease;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .msg-user {
+      align-self: flex-end;
+      background: #d4af37;
+      color: #0a0a0f;
+      border-bottom-right-radius: 4px;
+    }
+    .msg-bot {
+      align-self: flex-start;
+      background: #1a1a24;
+      color: #d0d0d8;
+      border: 1px solid #252530;
+      border-bottom-left-radius: 4px;
+    }
+    .msg-bot a {
+      color: #d4af37;
+      text-decoration: none;
+      border-bottom: 1px solid rgba(212,175,55,0.3);
+      transition: border-color 0.2s;
+    }
+    .msg-bot a:hover { border-color: #d4af37; }
+    .msg-bot strong { color: #e8e8ec; }
+    .msg-thinking {
+      align-self: flex-start;
+      color: #555;
+      font-style: italic;
+      padding: 8px 14px;
+      font-size: 0.85rem;
+    }
+
+    /* Input */
+    #chat-box {
+      display: flex;
+      gap: 8px;
+      padding: 12px 0 4px;
+      flex-shrink: 0;
+      border-top: 1px solid #1a1a24;
+    }
+    #user-input {
+      flex: 1; padding: 12px 16px;
+      background: #12121a; border: 1px solid #252530;
+      border-radius: 999px; color: #e8e8ec; font-size: 0.9rem;
+      font-family: 'DM Sans', sans-serif;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    #user-input:focus { border-color: #d4af37; }
+    #user-input:disabled { opacity: .35; }
+    #send-btn {
+      padding: 12px 20px; background: #d4af37; color: #0a0a0f;
+      border: none; border-radius: 999px; font-size: 0.9rem;
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    #send-btn:hover:not(:disabled) { background: #c4a030; }
+    #send-btn:disabled { opacity: .35; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+
+  <div id="app">
+    <div id="avatar-section">
+      <h1>Book Your Appointment</h1>
+      <div id="avatar-wrap">
+        <video id="avatar-video" autoplay playsinline muted></video>
+      </div>
+      <div id="status">Loading...</div>
+    </div>
+    <div id="chat-area"></div>
+    <div id="chat-box">
+      <input id="user-input" type="text" placeholder="Type a message…" disabled/>
+      <button id="send-btn" disabled>Send</button>
+    </div>
+  </div>
+
+  <script type="module">
+    import { createAgentManager } from 'https://esm.sh/@d-id/client-sdk@1.1.53';
+
+    const AGENT_ID    = 'v2_agt_LxzjMQLP';
+    const CLIENT_KEY  = 'Z29vZ2xlLW9hdXRoMnwxMDg1MzgzODIxMDg4OTU5MjE2MzA6dUtILVVlUFhjeFNUZS1lNjV2VG5t';
+    const N8N_WEBHOOK = 'https://rafa5555.app.n8n.cloud/webhook/salon-bot/v1/chat/completions';
+
+    const videoEl   = document.getElementById('avatar-video');
+    const inputEl   = document.getElementById('user-input');
+    const btnEl     = document.getElementById('send-btn');
+    const statusEl  = document.getElementById('status');
+    const chatArea  = document.getElementById('chat-area');
+
+    let agentManager = null;
+    let connected    = false;
+    let stream       = null;
+
+    function setStatus(s) { statusEl.textContent = s; }
+    function setReady(yes) {
+      inputEl.disabled = !yes;
+      btnEl.disabled   = !yes;
+      if (yes) inputEl.focus();
+    }
+
+    function formatReply(text) {
+      return text
+        .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+        .replace(/\n/g, '<br>');
+    }
+
+    function addMessage(text, type) {
+      const div = document.createElement('div');
+      div.className = 'msg msg-' + type;
+      if (type === 'bot') {
+        div.innerHTML = formatReply(text);
+      } else {
+        div.textContent = text;
+      }
+      chatArea.appendChild(div);
+      chatArea.scrollTop = chatArea.scrollHeight;
+      return div;
+    }
+
+    function removeThinking() {
+      const el = chatArea.querySelector('.msg-thinking');
+      if (el) el.remove();
+    }
+
+    function unmute() {
+      videoEl.muted = false;
+      document.removeEventListener('click', unmute);
+      document.removeEventListener('keydown', unmute);
+    }
+    document.addEventListener('click', unmute);
+    document.addEventListener('keydown', unmute);
+
+    const callbacks = {
+      onSrcObjectReady(value) {
+        stream = value;
+        videoEl.srcObject = value;
+        videoEl.muted = true;
+        videoEl.play().catch(() => {});
+      },
+      onConnectionStateChange(state) {
+        setStatus(state);
+        if (state === 'connected') {
+          connected = true;
+          setReady(true);
+          setStatus('Connected ✓');
+        } else if (state === 'disconnected' || state === 'closed') {
+          connected = false;
+          setReady(false);
+          setTimeout(() => agentManager?.reconnect(), 3000);
+        }
+      },
+      onVideoStateChange(state) {
+        if (state === 'STOP') {
+          const idle = agentManager?.agent?.presenter?.idle_video;
+          if (idle) {
+            videoEl.srcObject = null;
+            videoEl.src = idle;
+            videoEl.loop = true;
+            videoEl.muted = false;
+            videoEl.play().catch(() => {});
+          }
+          if (connected) setStatus('Connected ✓');
+        } else {
+          videoEl.src = '';
+          videoEl.srcObject = stream;
+          videoEl.muted = false;
+          setStatus('Speaking...');
+        }
+      },
+      onError(e) {
+        console.error(e);
+        setStatus('Error: ' + (e?.message ?? JSON.stringify(e)));
+      }
+    };
+
+    function init() {
+      setStatus('Connecting...');
+      createAgentManager(AGENT_ID, {
+        auth: { type: 'key', clientKey: CLIENT_KEY },
+        callbacks,
+        streamOptions: { compatibilityMode: 'auto', streamWarmup: true }
+      }).then(function(manager) {
+        agentManager = manager;
+        return agentManager.connect();
+      }).then(function() {
+        console.log('connect() done');
+      }).catch(function(e) {
+        setStatus('Failed — retrying...');
+        console.error(e);
+        setTimeout(init, 5000);
+      });
+    }
+
+    init();
+
+    async function send() {
+      const text = inputEl.value.trim();
+      if (!text || !connected) return;
+      inputEl.value = '';
+      setReady(false);
+
+      addMessage(text, 'user');
+
+      const thinkEl = document.createElement('div');
+      thinkEl.className = 'msg msg-thinking';
+      thinkEl.textContent = 'Checking availability...';
+      chatArea.appendChild(thinkEl);
+      chatArea.scrollTop = chatArea.scrollHeight;
+
+      videoEl.muted = false;
+
+      try {
+        const res = await fetch(N8N_WEBHOOK, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            messages: [{ role: 'user', content: text }],
+            stream: false
+          })
+        });
+        const data = await res.json();
+
+        let reply = data.reply ?? data.output ?? data.text ?? data.message
+                 ?? data.choices?.[0]?.message?.content;
+        if (reply) reply = reply.replace(/^=/, '').trim();
+        if (!reply) throw new Error('No reply from assistant');
+
+        removeThinking();
+        addMessage(reply, 'bot');
+
+        await agentManager.speak({
+          type: 'text',
+          input: reply
+        });
+
+        setStatus('Speaking...');
+      } catch(e) {
+        removeThinking();
+        addMessage('Sorry, something went wrong. Please try again.', 'bot');
+        setStatus('Error');
+        console.error(e);
+      }
+      setReady(true);
+    }
+
+    btnEl.addEventListener('click', send);
+    inputEl.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); send(); }
+    });
+  </script>
+</body>
+</html>
