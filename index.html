@@ -187,7 +187,7 @@
     <div id="chat-area"></div>
     <div id="chat-box">
       <input id="user-input" type="text" placeholder="Type or tap 🎤 to speak…" disabled/>
-      <button id="mic-btn" disabled title="Hold to speak">🎤</button>
+      <button id="mic-btn" disabled title="Tap to speak">🎤</button>
       <button id="send-btn" disabled>Send</button>
     </div>
     <div id="mic-unsupported">Voice input not supported in this browser</div>
@@ -211,7 +211,57 @@
     let connected    = false;
     let stream       = null;
 
-    // --- Speech Recognition Setup ---
+    // --- Clean text for avatar speech ---
+    function cleanForSpeech(text) {
+      return text
+        // Remove markdown bold
+        .replace(/\*\*([^*]+)\*\*/g, '$1')
+        // Remove markdown italic
+        .replace(/\*([^*]+)\*/g, '$1')
+        // Remove markdown links, keep link text only
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+        // Remove bullet points and dashes at start of lines
+        .replace(/^[\s]*[-•*]\s*/gm, '')
+        // Remove numbered lists (1. 2. 3.)
+        .replace(/^[\s]*\d+\.\s*/gm, '')
+        // Remove hash headers
+        .replace(/^#+\s*/gm, '')
+        // Remove URLs
+        .replace(/https?:\/\/[^\s)]+/g, '')
+        // Remove special characters that sound bad when spoken
+        .replace(/[#*_~`|>]/g, '')
+        // Clean up multiple spaces and newlines
+        .replace(/\n{2,}/g, '. ')
+        .replace(/\n/g, '. ')
+        .replace(/\s{2,}/g, ' ')
+        .replace(/\.\s*\./g, '.')
+        .trim();
+    }
+
+    // --- Shorten text for avatar voice (keep full in chat) ---
+    function shortenForVoice(text, maxChars = 300) {
+      const cleaned = cleanForSpeech(text);
+      
+      // If short enough, speak all of it
+      if (cleaned.length <= maxChars) return cleaned;
+      
+      // Find a good cut point (end of sentence)
+      const sentences = cleaned.split(/(?<=[.!?])\s+/);
+      let result = '';
+      for (const sentence of sentences) {
+        if ((result + ' ' + sentence).length > maxChars) break;
+        result += (result ? ' ' : '') + sentence;
+      }
+      
+      // Add a hint that there's more in the chat
+      if (result.length < cleaned.length) {
+        result += ' Check the chat below for full details.';
+      }
+      
+      return result || cleaned.substring(0, maxChars) + '... Check the chat for details.';
+    }
+
+    // --- Speech Recognition ---
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     let recognition = null;
     let isRecording = false;
@@ -228,24 +278,13 @@
           transcript += event.results[i][0].transcript;
         }
         inputEl.value = transcript;
-
-        // Auto-send when speech ends (final result)
         if (event.results[event.results.length - 1].isFinal) {
           stopRecording();
-          if (transcript.trim()) {
-            send();
-          }
+          if (transcript.trim()) send();
         }
       };
-
-      recognition.onerror = function(event) {
-        console.error('Speech error:', event.error);
-        stopRecording();
-      };
-
-      recognition.onend = function() {
-        stopRecording();
-      };
+      recognition.onerror = function() { stopRecording(); };
+      recognition.onend = function() { stopRecording(); };
     } else {
       document.getElementById('mic-unsupported').style.display = 'block';
     }
@@ -257,12 +296,7 @@
       micBtn.textContent = '⏹';
       inputEl.placeholder = 'Listening...';
       inputEl.value = '';
-      try {
-        recognition.start();
-      } catch(e) {
-        console.error(e);
-        stopRecording();
-      }
+      try { recognition.start(); } catch(e) { stopRecording(); }
     }
 
     function stopRecording() {
@@ -271,17 +305,11 @@
       micBtn.classList.remove('recording');
       micBtn.textContent = '🎤';
       inputEl.placeholder = 'Type or tap 🎤 to speak…';
-      try {
-        recognition.stop();
-      } catch(e) {}
+      try { recognition.stop(); } catch(e) {}
     }
 
     micBtn.addEventListener('click', function() {
-      if (isRecording) {
-        stopRecording();
-      } else {
-        startRecording();
-      }
+      if (isRecording) stopRecording(); else startRecording();
     });
 
     // --- Core Functions ---
@@ -421,12 +449,15 @@
         if (reply) reply = reply.replace(/^=/, '').trim();
         if (!reply) throw new Error('No reply from assistant');
 
+        // Show FULL reply in chat (with formatting)
         removeThinking();
         addMessage(reply, 'bot');
 
+        // Speak SHORTENED + CLEANED version
+        const speechText = shortenForVoice(reply);
         await agentManager.speak({
           type: 'text',
-          input: reply
+          input: speechText
         });
 
         setStatus('Speaking...');
