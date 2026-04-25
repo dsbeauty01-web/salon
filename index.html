@@ -3,8 +3,32 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>AI Receptionist</title>
+
+  <!--
+    CSP: allow D-ID WebRTC, n8n webhook, fonts.
+    GitHub Pages doesn't set a restrictive CSP by default,
+    but this ensures any injected headers don't block us.
+  -->
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    script-src  'self' 'unsafe-inline' 'unsafe-eval' https://esm.sh https://esm.run;
+    connect-src 'self'
+                https://api.d-id.com wss://api.d-id.com
+                https://*.d-id.com   wss://*.d-id.com
+                https://notifications.d-id.com wss://notifications.d-id.com
+                https://rafa5555.app.n8n.cloud
+                https://fonts.googleapis.com https://fonts.gstatic.com
+                https://api-js.mixpanel.com;
+    media-src   'self' blob: https://*.d-id.com;
+    img-src     'self' data: blob: https://*.d-id.com;
+    font-src    'self' https://fonts.gstatic.com;
+    style-src   'self' 'unsafe-inline' https://fonts.googleapis.com;
+    worker-src  blob:;
+  "/>
+
+  <title>AI Receptionist — DS Beauty</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -27,7 +51,7 @@
       height: calc(100vh - 40px);
     }
 
-    /* ── Avatar ── */
+    /* Avatar */
     #avatar-section {
       display: flex;
       flex-direction: column;
@@ -62,7 +86,25 @@
       min-height: 1em;
     }
 
-    /* ── Chat ── */
+    /* On-screen error box */
+    #debug-box {
+      display: none;
+      background: #1a0000;
+      border: 1px solid #600;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.72rem;
+      color: #f88;
+      margin-bottom: 8px;
+      word-break: break-all;
+      line-height: 1.6;
+      max-height: 140px;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+    #debug-box.visible { display: block; }
+
+    /* Chat */
     #chat-area {
       flex: 1;
       overflow-y: auto;
@@ -109,7 +151,7 @@
       transition: border-color 0.2s;
     }
     .msg-bot a:hover { border-color: #d4af37; }
-    .msg-bot strong { color: #e8e8ec; }
+    .msg-bot strong  { color: #e8e8ec; }
     .msg-thinking {
       align-self: flex-start;
       color: #555;
@@ -118,7 +160,7 @@
       font-size: 0.85rem;
     }
 
-    /* ── Input bar ── */
+    /* Input bar */
     #chat-box {
       display: flex;
       gap: 8px;
@@ -137,7 +179,7 @@
       outline: none;
       transition: border-color 0.2s;
     }
-    #user-input:focus   { border-color: #d4af37; }
+    #user-input:focus    { border-color: #d4af37; }
     #user-input:disabled { opacity: .35; }
 
     #mic-btn {
@@ -148,47 +190,34 @@
       color: #888;
       font-size: 1.2rem;
       cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      display: flex; align-items: center; justify-content: center;
       transition: all 0.2s;
       flex-shrink: 0;
     }
-    #mic-btn:hover          { border-color: #d4af37; color: #d4af37; }
+    #mic-btn:hover { border-color: #d4af37; color: #d4af37; }
     #mic-btn.recording {
-      background: #d4af37;
-      color: #0a0a0f;
-      border-color: #d4af37;
+      background: #d4af37; color: #0a0a0f; border-color: #d4af37;
       animation: pulse 1.5s infinite;
     }
     #mic-btn:disabled { opacity: .35; cursor: not-allowed; }
     @keyframes pulse {
-      0%,100% { box-shadow: 0 0 0 0   rgba(212,175,55,0.4); }
-      50%      { box-shadow: 0 0 0 10px rgba(212,175,55,0); }
+      0%,100% { box-shadow: 0 0 0 0    rgba(212,175,55,0.4); }
+      50%      { box-shadow: 0 0 0 10px rgba(212,175,55,0);   }
     }
 
     #send-btn {
       padding: 12px 20px;
-      background: #d4af37;
-      color: #0a0a0f;
-      border: none;
-      border-radius: 999px;
-      font-size: 0.9rem;
-      font-family: 'DM Sans', sans-serif;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.2s;
-      flex-shrink: 0;
+      background: #d4af37; color: #0a0a0f;
+      border: none; border-radius: 999px;
+      font-size: 0.9rem; font-family: 'DM Sans', sans-serif; font-weight: 600;
+      cursor: pointer; transition: background 0.2s; flex-shrink: 0;
     }
     #send-btn:hover:not(:disabled) { background: #c4a030; }
     #send-btn:disabled { opacity: .35; cursor: not-allowed; }
 
     #mic-unsupported {
-      display: none;
-      font-size: 0.7rem;
-      color: #555;
-      text-align: center;
-      padding-top: 4px;
+      display: none; font-size: 0.7rem; color: #555;
+      text-align: center; padding-top: 4px;
     }
   </style>
 </head>
@@ -203,6 +232,7 @@
     <div id="status">Loading...</div>
   </div>
 
+  <div id="debug-box"></div>
   <div id="chat-area"></div>
 
   <div id="chat-box">
@@ -213,15 +243,58 @@
   <div id="mic-unsupported">Voice input not supported in this browser</div>
 </div>
 
+<!--
+  CRITICAL: The D-ID SDK MUST be loaded as type="module" via ESM.
+  The UMD bundle exports to window.index (useless) — only the ESM build
+  correctly exports createAgentManager as a named export.
+  We use esm.sh which bundles all deps and serves a proper ESM file.
+-->
 <script type="module">
-  import { createAgentManager } from 'https://esm.sh/@d-id/client-sdk@1.1.53';
+  // ── Visible debug logger ──
+  const debugBox = document.getElementById('debug-box');
+  function dbg(msg, isErr) {
+    if (isErr) console.error('[bot]', msg);
+    else        console.log('[bot]', msg);
+    if (isErr) {
+      debugBox.classList.add('visible');
+      const line = document.createElement('div');
+      line.textContent = '⚠ ' + String(msg);
+      debugBox.appendChild(line);
+      debugBox.scrollTop = debugBox.scrollHeight;
+    }
+  }
 
-  /* ── CONFIG ── */
+  // ── CONFIG ──
   const AGENT_ID    = 'v2_agt_LxzjMQLP';
   const CLIENT_KEY  = 'Z29vZ2xlLW9hdXRoMnwxMDg1MzgzODIxMDg4OTU5MjE2MzA6dUtILVVlUFhjeFNUZS1lNjV2VG5t';
   const N8N_WEBHOOK = 'https://rafa5555.app.n8n.cloud/webhook/salon-bot/v1/chat/completions';
 
-  /* ── DOM refs ── */
+  // ── Import D-ID SDK (ESM — the ONLY correct way) ──
+  let createAgentManager;
+  try {
+    const sdk = await import('https://esm.sh/@d-id/client-sdk@1.1.53');
+    createAgentManager = sdk.createAgentManager;
+    dbg('D-ID SDK loaded via esm.sh ✓');
+  } catch (e) {
+    dbg('esm.sh failed: ' + e.message + ' — trying esm.run fallback', true);
+    try {
+      const sdk2 = await import('https://esm.run/@d-id/client-sdk@1.1.53');
+      createAgentManager = sdk2.createAgentManager;
+      dbg('D-ID SDK loaded via esm.run ✓');
+    } catch (e2) {
+      dbg('Both CDNs failed. SDK will not load: ' + e2.message, true);
+      document.getElementById('status').textContent = 'SDK failed to load ✗';
+    }
+  }
+
+  if (!createAgentManager) {
+    document.getElementById('status').textContent = 'Cannot connect — SDK missing';
+    // Leave page rendered so user can read the error box
+  } else {
+    bootApp(createAgentManager);
+  }
+
+  // ── DOM refs ──
   const videoEl  = document.getElementById('avatar-video');
   const inputEl  = document.getElementById('user-input');
   const btnEl    = document.getElementById('send-btn');
@@ -233,9 +306,7 @@
   let connected    = false;
   let stream       = null;
 
-  /* ────────────────────────────────
-     Text helpers
-  ──────────────────────────────── */
+  // ── Text helpers ──
   function cleanForSpeech(text) {
     return text
       .replace(/\*\*([^*]+)\*\*/g, '$1')
@@ -256,16 +327,13 @@
   function shortenForVoice(text, maxChars = 300) {
     const cleaned = cleanForSpeech(text);
     if (cleaned.length <= maxChars) return cleaned;
-
     const sentences = cleaned.split(/(?<=[.!?])\s+/);
     let result = '';
     for (const s of sentences) {
       if ((result + ' ' + s).length > maxChars) break;
       result += (result ? ' ' : '') + s;
     }
-    if (result.length < cleaned.length) {
-      result += ' Check the chat below for full details.';
-    }
+    if (result.length < cleaned.length) result += ' Check the chat below for full details.';
     return result || cleaned.substring(0, maxChars) + '... Check the chat for details.';
   }
 
@@ -276,9 +344,7 @@
       .replace(/\n/g, '<br>');
   }
 
-  /* ────────────────────────────────
-     Chat UI
-  ──────────────────────────────── */
+  // ── UI helpers ──
   function setStatus(s) { statusEl.textContent = s; }
 
   function setReady(yes) {
@@ -291,11 +357,8 @@
   function addMessage(text, type) {
     const div = document.createElement('div');
     div.className = 'msg msg-' + type;
-    if (type === 'bot') {
-      div.innerHTML = formatReply(text);
-    } else {
-      div.textContent = text;
-    }
+    if (type === 'bot') div.innerHTML = formatReply(text);
+    else div.textContent = text;
     chatArea.appendChild(div);
     chatArea.scrollTop = chatArea.scrollHeight;
     return div;
@@ -306,9 +369,7 @@
     if (el) el.remove();
   }
 
-  /* ────────────────────────────────
-     Unmute on first interaction
-  ──────────────────────────────── */
+  // ── Unmute on first interaction ──
   function unmute() {
     videoEl.muted = false;
     document.removeEventListener('click',   unmute);
@@ -317,19 +378,16 @@
   document.addEventListener('click',   unmute);
   document.addEventListener('keydown', unmute);
 
-  /* ────────────────────────────────
-     Speech Recognition
-  ──────────────────────────────── */
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  let recognition  = null;
-  let isRecording  = false;
+  // ── Speech Recognition ──
+  const SpeechRecog = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let recognition = null;
+  let isRecording = false;
 
-  if (SpeechRecognition) {
-    recognition = new SpeechRecognition();
-    recognition.lang            = 'en-US';
-    recognition.interimResults  = true;
-    recognition.continuous      = false;
-
+  if (SpeechRecog) {
+    recognition = new SpeechRecog();
+    recognition.lang           = 'en-US';
+    recognition.interimResults = true;
+    recognition.continuous     = false;
     recognition.onresult = (event) => {
       let transcript = '';
       for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -351,12 +409,11 @@
     if (!recognition || isRecording) return;
     isRecording = true;
     micBtn.classList.add('recording');
-    micBtn.textContent    = '⏹';
-    inputEl.placeholder   = 'Listening...';
-    inputEl.value         = '';
+    micBtn.textContent  = '⏹';
+    inputEl.placeholder = 'Listening...';
+    inputEl.value       = '';
     try { recognition.start(); } catch(e) { stopRecording(); }
   }
-
   function stopRecording() {
     if (!isRecording) return;
     isRecording = false;
@@ -365,23 +422,18 @@
     inputEl.placeholder = 'Type or tap 🎤 to speak…';
     try { recognition.stop(); } catch(e) {}
   }
+  micBtn.addEventListener('click', () => isRecording ? stopRecording() : startRecording());
 
-  micBtn.addEventListener('click', () => {
-    if (isRecording) stopRecording(); else startRecording();
-  });
-
-  /* ────────────────────────────────
-     D-ID Agent Manager
-  ──────────────────────────────── */
-  const callbacks = {
+  // ── D-ID callbacks ──
+  const didCallbacks = {
     onSrcObjectReady(value) {
       stream = value;
       videoEl.srcObject = value;
       videoEl.muted = true;
-      videoEl.play().catch(() => {});
+      videoEl.play().catch(e => dbg('video.play(): ' + e, true));
     },
-
     onConnectionStateChange(state) {
+      dbg('connection → ' + state);
       setStatus(state);
       if (state === 'connected') {
         connected = true;
@@ -390,10 +442,13 @@
       } else if (state === 'disconnected' || state === 'closed') {
         connected = false;
         setReady(false);
-        setTimeout(() => agentManager?.reconnect(), 3000);
+        setStatus('Reconnecting...');
+        setTimeout(() => agentManager?.reconnect?.(), 3000);
+      } else if (state === 'failed') {
+        dbg('WebRTC failed. Possible causes:\n• CLIENT_KEY expired — regenerate in studio.d-id.com\n• D-ID plan: max sessions reached\n• Network blocking WebRTC (try different network)', true);
+        setStatus('Connection failed ✗');
       }
     },
-
     onVideoStateChange(state) {
       if (state === 'STOP') {
         const idle = agentManager?.agent?.presenter?.idle_video;
@@ -412,37 +467,37 @@
         setStatus('Speaking...');
       }
     },
-
     onError(e) {
-      console.error('D-ID error:', e);
-      setStatus('Error: ' + (e?.message ?? JSON.stringify(e)));
+      const msg = e?.message ?? JSON.stringify(e);
+      dbg('D-ID onError: ' + msg, true);
+      setStatus('Error — see box above');
     }
   };
 
-  function init() {
+  // ── Boot the app ──
+  function bootApp(factory) {
     setStatus('Connecting...');
-    createAgentManager(AGENT_ID, {
+
+    factory(AGENT_ID, {
       auth:          { type: 'key', clientKey: CLIENT_KEY },
-      callbacks,
+      callbacks:     didCallbacks,
       streamOptions: { compatibilityMode: 'auto', streamWarmup: true }
     })
     .then(manager => {
       agentManager = manager;
-      return agentManager.connect();
+      dbg('agentManager created → connect()');
+      return manager.connect();
     })
-    .then(() => console.log('D-ID connected'))
+    .then(() => dbg('connect() OK ✓'))
     .catch(e => {
-      console.error('D-ID init error:', e);
-      setStatus('Failed — retrying...');
-      setTimeout(init, 5000);
+      const msg = e?.message ?? String(e);
+      dbg('D-ID init failed: ' + msg, true);
+      setStatus('Failed — retrying in 5s...');
+      setTimeout(() => bootApp(factory), 5000);
     });
   }
 
-  init();
-
-  /* ────────────────────────────────
-     Send message
-  ──────────────────────────────── */
+  // ── Send message ──
   async function send() {
     const text = inputEl.value.trim();
     if (!text || !connected) return;
@@ -463,13 +518,10 @@
       const res = await fetch(N8N_WEBHOOK, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({
-          messages: [{ role: 'user', content: text }],
-          stream: false
-        })
+        body:    JSON.stringify({ messages: [{ role: 'user', content: text }], stream: false })
       });
 
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) throw new Error('n8n HTTP ' + res.status);
       const data = await res.json();
 
       let reply = data.reply
@@ -479,7 +531,7 @@
                ?? data.choices?.[0]?.message?.content;
 
       if (reply) reply = reply.replace(/^=/, '').trim();
-      if (!reply) throw new Error('Empty reply from n8n');
+      if (!reply) throw new Error('Empty reply — is n8n workflow active?');
 
       removeThinking();
       addMessage(reply, 'bot');
@@ -490,9 +542,9 @@
 
     } catch(e) {
       removeThinking();
+      dbg('send() error: ' + (e?.message ?? e), true);
       addMessage('Sorry, something went wrong. Please try again.', 'bot');
-      setStatus('Error — check console');
-      console.error('send() error:', e);
+      setStatus('Error — see box above');
     }
 
     setReady(true);
