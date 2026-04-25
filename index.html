@@ -3,35 +3,10 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-
-  <!--
-    CSP: allow D-ID WebRTC, n8n webhook, fonts.
-    GitHub Pages doesn't set a restrictive CSP by default,
-    but this ensures any injected headers don't block us.
-  -->
-  <meta http-equiv="Content-Security-Policy" content="
-    default-src 'self';
-    script-src  'self' 'unsafe-inline' 'unsafe-eval' https://esm.sh https://esm.run;
-    connect-src 'self'
-                https://api.d-id.com wss://api.d-id.com
-                https://*.d-id.com   wss://*.d-id.com
-                https://notifications.d-id.com wss://notifications.d-id.com
-                https://rafa5555.app.n8n.cloud
-                https://fonts.googleapis.com https://fonts.gstatic.com
-                https://api-js.mixpanel.com;
-    media-src   'self' blob: https://*.d-id.com;
-    img-src     'self' data: blob: https://*.d-id.com;
-    font-src    'self' https://fonts.gstatic.com;
-    style-src   'self' 'unsafe-inline' https://fonts.googleapis.com;
-    worker-src  blob:;
-  "/>
-
-  <title>AI Receptionist — DS Beauty</title>
+  <title>AI Receptionist</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
-
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     body {
       font-family: 'DM Sans', sans-serif;
       background: #0a0a0f;
@@ -42,7 +17,6 @@
       align-items: center;
       padding: 20px;
     }
-
     #app {
       width: 100%;
       max-width: 520px;
@@ -50,8 +24,6 @@
       flex-direction: column;
       height: calc(100vh - 40px);
     }
-
-    /* Avatar */
     #avatar-section {
       display: flex;
       flex-direction: column;
@@ -59,52 +31,17 @@
       padding: 16px 0;
       flex-shrink: 0;
     }
-    h1 {
-      font-size: 1rem;
-      font-weight: 500;
-      color: #999;
-      margin-bottom: 10px;
-    }
+    h1 { font-size: 1rem; font-weight: 500; color: #999; margin-bottom: 10px; }
     #avatar-wrap {
       width: 200px; height: 200px;
       border-radius: 50%;
       overflow: hidden;
       background: #111;
       border: 2px solid #222;
-      box-shadow: 0 0 40px rgba(212,175,55,0.12);
+      box-shadow: 0 0 40px rgba(212,175,55,0.1);
     }
-    #avatar-video {
-      width: 100%; height: 100%;
-      object-fit: cover;
-      display: block;
-    }
-    #status {
-      font-size: .75rem;
-      color: #666;
-      margin-top: 8px;
-      text-align: center;
-      min-height: 1em;
-    }
-
-    /* On-screen error box */
-    #debug-box {
-      display: none;
-      background: #1a0000;
-      border: 1px solid #600;
-      border-radius: 8px;
-      padding: 10px 14px;
-      font-size: 0.72rem;
-      color: #f88;
-      margin-bottom: 8px;
-      word-break: break-all;
-      line-height: 1.6;
-      max-height: 140px;
-      overflow-y: auto;
-      flex-shrink: 0;
-    }
-    #debug-box.visible { display: block; }
-
-    /* Chat */
+    #avatar-video { width: 100%; height: 100%; object-fit: cover; }
+    #status { font-size: .75rem; color: #666; margin-top: 8px; text-align: center; }
     #chat-area {
       flex: 1;
       overflow-y: auto;
@@ -117,7 +54,6 @@
     }
     #chat-area::-webkit-scrollbar { width: 4px; }
     #chat-area::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
-
     .msg {
       max-width: 85%;
       padding: 10px 14px;
@@ -129,38 +65,14 @@
     }
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(6px); }
-      to   { opacity: 1; transform: translateY(0); }
+      to { opacity: 1; transform: translateY(0); }
     }
-    .msg-user {
-      align-self: flex-end;
-      background: #d4af37;
-      color: #0a0a0f;
-      border-bottom-right-radius: 4px;
-    }
-    .msg-bot {
-      align-self: flex-start;
-      background: #1a1a24;
-      color: #d0d0d8;
-      border: 1px solid #252530;
-      border-bottom-left-radius: 4px;
-    }
-    .msg-bot a {
-      color: #d4af37;
-      text-decoration: none;
-      border-bottom: 1px solid rgba(212,175,55,0.3);
-      transition: border-color 0.2s;
-    }
+    .msg-user { align-self: flex-end; background: #d4af37; color: #0a0a0f; border-bottom-right-radius: 4px; }
+    .msg-bot  { align-self: flex-start; background: #1a1a24; color: #d0d0d8; border: 1px solid #252530; border-bottom-left-radius: 4px; }
+    .msg-bot a { color: #d4af37; text-decoration: none; border-bottom: 1px solid rgba(212,175,55,0.3); transition: border-color 0.2s; }
     .msg-bot a:hover { border-color: #d4af37; }
-    .msg-bot strong  { color: #e8e8ec; }
-    .msg-thinking {
-      align-self: flex-start;
-      color: #555;
-      font-style: italic;
-      padding: 8px 14px;
-      font-size: 0.85rem;
-    }
-
-    /* Input bar */
+    .msg-bot strong { color: #e8e8ec; }
+    .msg-thinking { align-self: flex-start; color: #555; font-style: italic; padding: 8px 14px; font-size: 0.85rem; }
     #chat-box {
       display: flex;
       gap: 8px;
@@ -170,390 +82,309 @@
     }
     #user-input {
       flex: 1; padding: 12px 16px;
-      background: #12121a;
-      border: 1px solid #252530;
-      border-radius: 999px;
-      color: #e8e8ec;
-      font-size: 0.9rem;
+      background: #12121a; border: 1px solid #252530;
+      border-radius: 999px; color: #e8e8ec; font-size: 0.9rem;
       font-family: 'DM Sans', sans-serif;
-      outline: none;
-      transition: border-color 0.2s;
+      outline: none; transition: border-color 0.2s;
     }
-    #user-input:focus    { border-color: #d4af37; }
+    #user-input:focus { border-color: #d4af37; }
     #user-input:disabled { opacity: .35; }
-
     #mic-btn {
       width: 44px; height: 44px;
-      background: #1a1a24;
-      border: 1px solid #252530;
-      border-radius: 50%;
-      color: #888;
-      font-size: 1.2rem;
-      cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
+      background: #1a1a24; border: 1px solid #252530;
+      border-radius: 50%; color: #888; font-size: 1.2rem;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
       transition: all 0.2s;
-      flex-shrink: 0;
     }
     #mic-btn:hover { border-color: #d4af37; color: #d4af37; }
-    #mic-btn.recording {
-      background: #d4af37; color: #0a0a0f; border-color: #d4af37;
-      animation: pulse 1.5s infinite;
-    }
+    #mic-btn.recording { background: #d4af37; color: #0a0a0f; border-color: #d4af37; animation: pulse 1.5s infinite; }
     #mic-btn:disabled { opacity: .35; cursor: not-allowed; }
     @keyframes pulse {
-      0%,100% { box-shadow: 0 0 0 0    rgba(212,175,55,0.4); }
-      50%      { box-shadow: 0 0 0 10px rgba(212,175,55,0);   }
+      0%, 100% { box-shadow: 0 0 0 0 rgba(212,175,55,0.4); }
+      50% { box-shadow: 0 0 0 10px rgba(212,175,55,0); }
     }
-
     #send-btn {
-      padding: 12px 20px;
-      background: #d4af37; color: #0a0a0f;
-      border: none; border-radius: 999px;
-      font-size: 0.9rem; font-family: 'DM Sans', sans-serif; font-weight: 600;
-      cursor: pointer; transition: background 0.2s; flex-shrink: 0;
+      padding: 12px 20px; background: #d4af37; color: #0a0a0f;
+      border: none; border-radius: 999px; font-size: 0.9rem;
+      font-family: 'DM Sans', sans-serif; font-weight: 600;
+      cursor: pointer; transition: background 0.2s;
     }
     #send-btn:hover:not(:disabled) { background: #c4a030; }
     #send-btn:disabled { opacity: .35; cursor: not-allowed; }
-
-    #mic-unsupported {
-      display: none; font-size: 0.7rem; color: #555;
-      text-align: center; padding-top: 4px;
-    }
+    #mic-unsupported { display: none; font-size: 0.7rem; color: #555; text-align: center; padding-top: 4px; }
   </style>
 </head>
 <body>
 
-<div id="app">
-  <div id="avatar-section">
-    <h1>Book Your Appointment</h1>
-    <div id="avatar-wrap">
-      <video id="avatar-video" autoplay playsinline muted></video>
+  <div id="app">
+    <div id="avatar-section">
+      <h1>Book Your Appointment</h1>
+      <div id="avatar-wrap">
+        <video id="avatar-video" autoplay playsinline muted></video>
+      </div>
+      <div id="status">Loading...</div>
     </div>
-    <div id="status">Loading...</div>
+    <div id="chat-area"></div>
+    <div id="chat-box">
+      <input id="user-input" type="text" placeholder="Type or tap 🎤 to speak…" disabled/>
+      <button id="mic-btn" disabled title="Tap to speak">🎤</button>
+      <button id="send-btn" disabled>Send</button>
+    </div>
+    <div id="mic-unsupported">Voice input not supported in this browser</div>
   </div>
 
-  <div id="debug-box"></div>
-  <div id="chat-area"></div>
+  <script type="module">
+    import { createAgentManager } from 'https://esm.sh/@d-id/client-sdk@1.1.53';
 
-  <div id="chat-box">
-    <input id="user-input" type="text" placeholder="Type or tap 🎤 to speak…" disabled/>
-    <button id="mic-btn" disabled title="Tap to speak">🎤</button>
-    <button id="send-btn" disabled>Send</button>
-  </div>
-  <div id="mic-unsupported">Voice input not supported in this browser</div>
-</div>
+    const AGENT_ID    = 'v2_agt_LxzjMQLP';
+    const CLIENT_KEY  = 'ZHNiZWF1dHkwMUBnbWFpbC5jb206ZHdkaGRTS1hDalJZRWZtVU10RkpZ';
+    const N8N_WEBHOOK = 'https://rafa5555.app.n8n.cloud/webhook/salon-bot/v1/chat/completions';
 
-<!--
-  CRITICAL: The D-ID SDK MUST be loaded as type="module" via ESM.
-  The UMD bundle exports to window.index (useless) — only the ESM build
-  correctly exports createAgentManager as a named export.
-  We use esm.sh which bundles all deps and serves a proper ESM file.
--->
-<script type="module">
-  // ── Visible debug logger ──
-  const debugBox = document.getElementById('debug-box');
-  function dbg(msg, isErr) {
-    if (isErr) console.error('[bot]', msg);
-    else        console.log('[bot]', msg);
-    if (isErr) {
-      debugBox.classList.add('visible');
-      const line = document.createElement('div');
-      line.textContent = '⚠ ' + String(msg);
-      debugBox.appendChild(line);
-      debugBox.scrollTop = debugBox.scrollHeight;
+    const videoEl  = document.getElementById('avatar-video');
+    const inputEl  = document.getElementById('user-input');
+    const btnEl    = document.getElementById('send-btn');
+    const micBtn   = document.getElementById('mic-btn');
+    const statusEl = document.getElementById('status');
+    const chatArea = document.getElementById('chat-area');
+
+    let agentManager = null;
+    let connected    = false;
+    let stream       = null;
+
+    function cleanForSpeech(text) {
+      return text
+        .replace(/\*\*([^*]+)\*\*/g, '$1')
+        .replace(/\*([^*]+)\*/g, '$1')
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+        .replace(/^[\s]*[-•*]\s*/gm, '')
+        .replace(/^[\s]*\d+\.\s*/gm, '')
+        .replace(/^#+\s*/gm, '')
+        .replace(/https?:\/\/[^\s)]+/g, '')
+        .replace(/[#*_~`|>]/g, '')
+        .replace(/\n{2,}/g, '. ')
+        .replace(/\n/g, '. ')
+        .replace(/\s{2,}/g, ' ')
+        .replace(/\.\s*\./g, '.')
+        .trim();
     }
-  }
 
-  // ── CONFIG ──
-  const AGENT_ID    = 'v2_agt_LxzjMQLP';
-  const CLIENT_KEY  = 'Z29vZ2xlLW9hdXRoMnwxMDg1MzgzODIxMDg4OTU5MjE2MzA6dUtILVVlUFhjeFNUZS1lNjV2VG5t';
-  const N8N_WEBHOOK = 'https://rafa5555.app.n8n.cloud/webhook/salon-bot/v1/chat/completions';
-
-  // ── Import D-ID SDK (ESM — the ONLY correct way) ──
-  let createAgentManager;
-  try {
-    const sdk = await import('https://esm.sh/@d-id/client-sdk@1.1.53');
-    createAgentManager = sdk.createAgentManager;
-    dbg('D-ID SDK loaded via esm.sh ✓');
-  } catch (e) {
-    dbg('esm.sh failed: ' + e.message + ' — trying esm.run fallback', true);
-    try {
-      const sdk2 = await import('https://esm.run/@d-id/client-sdk@1.1.53');
-      createAgentManager = sdk2.createAgentManager;
-      dbg('D-ID SDK loaded via esm.run ✓');
-    } catch (e2) {
-      dbg('Both CDNs failed. SDK will not load: ' + e2.message, true);
-      document.getElementById('status').textContent = 'SDK failed to load ✗';
-    }
-  }
-
-  if (!createAgentManager) {
-    document.getElementById('status').textContent = 'Cannot connect — SDK missing';
-    // Leave page rendered so user can read the error box
-  } else {
-    bootApp(createAgentManager);
-  }
-
-  // ── DOM refs ──
-  const videoEl  = document.getElementById('avatar-video');
-  const inputEl  = document.getElementById('user-input');
-  const btnEl    = document.getElementById('send-btn');
-  const micBtn   = document.getElementById('mic-btn');
-  const statusEl = document.getElementById('status');
-  const chatArea = document.getElementById('chat-area');
-
-  let agentManager = null;
-  let connected    = false;
-  let stream       = null;
-
-  // ── Text helpers ──
-  function cleanForSpeech(text) {
-    return text
-      .replace(/\*\*([^*]+)\*\*/g, '$1')
-      .replace(/\*([^*]+)\*/g, '$1')
-      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-      .replace(/^[\s]*[-•*]\s*/gm, '')
-      .replace(/^[\s]*\d+\.\s*/gm, '')
-      .replace(/^#+\s*/gm, '')
-      .replace(/https?:\/\/[^\s)]+/g, '')
-      .replace(/[#*_~`|>]/g, '')
-      .replace(/\n{2,}/g, '. ')
-      .replace(/\n/g, '. ')
-      .replace(/\s{2,}/g, ' ')
-      .replace(/\.\s*\./g, '.')
-      .trim();
-  }
-
-  function shortenForVoice(text, maxChars = 300) {
-    const cleaned = cleanForSpeech(text);
-    if (cleaned.length <= maxChars) return cleaned;
-    const sentences = cleaned.split(/(?<=[.!?])\s+/);
-    let result = '';
-    for (const s of sentences) {
-      if ((result + ' ' + s).length > maxChars) break;
-      result += (result ? ' ' : '') + s;
-    }
-    if (result.length < cleaned.length) result += ' Check the chat below for full details.';
-    return result || cleaned.substring(0, maxChars) + '... Check the chat for details.';
-  }
-
-  function formatReply(text) {
-    return text
-      .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
-      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-      .replace(/\n/g, '<br>');
-  }
-
-  // ── UI helpers ──
-  function setStatus(s) { statusEl.textContent = s; }
-
-  function setReady(yes) {
-    inputEl.disabled = !yes;
-    btnEl.disabled   = !yes;
-    micBtn.disabled  = !yes || !recognition;
-    if (yes) inputEl.focus();
-  }
-
-  function addMessage(text, type) {
-    const div = document.createElement('div');
-    div.className = 'msg msg-' + type;
-    if (type === 'bot') div.innerHTML = formatReply(text);
-    else div.textContent = text;
-    chatArea.appendChild(div);
-    chatArea.scrollTop = chatArea.scrollHeight;
-    return div;
-  }
-
-  function removeThinking() {
-    const el = chatArea.querySelector('.msg-thinking');
-    if (el) el.remove();
-  }
-
-  // ── Unmute on first interaction ──
-  function unmute() {
-    videoEl.muted = false;
-    document.removeEventListener('click',   unmute);
-    document.removeEventListener('keydown', unmute);
-  }
-  document.addEventListener('click',   unmute);
-  document.addEventListener('keydown', unmute);
-
-  // ── Speech Recognition ──
-  const SpeechRecog = window.SpeechRecognition || window.webkitSpeechRecognition;
-  let recognition = null;
-  let isRecording = false;
-
-  if (SpeechRecog) {
-    recognition = new SpeechRecog();
-    recognition.lang           = 'en-US';
-    recognition.interimResults = true;
-    recognition.continuous     = false;
-    recognition.onresult = (event) => {
-      let transcript = '';
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        transcript += event.results[i][0].transcript;
+    function shortenForVoice(text, maxChars = 300) {
+      const cleaned = cleanForSpeech(text);
+      if (cleaned.length <= maxChars) return cleaned;
+      const sentences = cleaned.split(/(?<=[.!?])\s+/);
+      let result = '';
+      for (const sentence of sentences) {
+        if ((result + ' ' + sentence).length > maxChars) break;
+        result += (result ? ' ' : '') + sentence;
       }
-      inputEl.value = transcript;
-      if (event.results[event.results.length - 1].isFinal) {
-        stopRecording();
-        if (transcript.trim()) send();
+      if (result.length < cleaned.length) {
+        result += ' Check the chat below for full details.';
+      }
+      return result || cleaned.substring(0, maxChars) + '... Check the chat for details.';
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition = null;
+    let isRecording = false;
+
+    if (SpeechRecognition) {
+      recognition = new SpeechRecognition();
+      recognition.lang = 'en-US';
+      recognition.interimResults = true;
+      recognition.continuous = false;
+      recognition.onresult = function(event) {
+        let transcript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript;
+        }
+        inputEl.value = transcript;
+        if (event.results[event.results.length - 1].isFinal) {
+          stopRecording();
+          if (transcript.trim()) send();
+        }
+      };
+      recognition.onerror = function() { stopRecording(); };
+      recognition.onend   = function() { stopRecording(); };
+    } else {
+      document.getElementById('mic-unsupported').style.display = 'block';
+    }
+
+    function startRecording() {
+      if (!recognition || isRecording) return;
+      isRecording = true;
+      micBtn.classList.add('recording');
+      micBtn.textContent = '⏹';
+      inputEl.placeholder = 'Listening...';
+      inputEl.value = '';
+      try { recognition.start(); } catch(e) { stopRecording(); }
+    }
+
+    function stopRecording() {
+      if (!isRecording) return;
+      isRecording = false;
+      micBtn.classList.remove('recording');
+      micBtn.textContent = '🎤';
+      inputEl.placeholder = 'Type or tap 🎤 to speak…';
+      try { recognition.stop(); } catch(e) {}
+    }
+
+    micBtn.addEventListener('click', function() {
+      if (isRecording) stopRecording(); else startRecording();
+    });
+
+    function setStatus(s) { statusEl.textContent = s; }
+    function setReady(yes) {
+      inputEl.disabled = !yes;
+      btnEl.disabled   = !yes;
+      micBtn.disabled  = !yes || !recognition;
+      if (yes) inputEl.focus();
+    }
+
+    function formatReply(text) {
+      return text
+        .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+        .replace(/\n/g, '<br>');
+    }
+
+    function addMessage(text, type) {
+      const div = document.createElement('div');
+      div.className = 'msg msg-' + type;
+      if (type === 'bot') div.innerHTML = formatReply(text);
+      else div.textContent = text;
+      chatArea.appendChild(div);
+      chatArea.scrollTop = chatArea.scrollHeight;
+      return div;
+    }
+
+    function removeThinking() {
+      const el = chatArea.querySelector('.msg-thinking');
+      if (el) el.remove();
+    }
+
+    function unmute() {
+      videoEl.muted = false;
+      document.removeEventListener('click', unmute);
+      document.removeEventListener('keydown', unmute);
+    }
+    document.addEventListener('click', unmute);
+    document.addEventListener('keydown', unmute);
+
+    const callbacks = {
+      onSrcObjectReady(value) {
+        stream = value;
+        videoEl.srcObject = value;
+        videoEl.muted = true;
+        videoEl.play().catch(() => {});
+      },
+      onConnectionStateChange(state) {
+        setStatus(state);
+        if (state === 'connected') {
+          connected = true;
+          setReady(true);
+          setStatus('Connected ✓');
+        } else if (state === 'disconnected' || state === 'closed') {
+          connected = false;
+          setReady(false);
+          setTimeout(() => agentManager?.reconnect(), 3000);
+        }
+      },
+      onVideoStateChange(state) {
+        if (state === 'STOP') {
+          const idle = agentManager?.agent?.presenter?.idle_video;
+          if (idle) {
+            videoEl.srcObject = null;
+            videoEl.src = idle;
+            videoEl.loop = true;
+            videoEl.muted = false;
+            videoEl.play().catch(() => {});
+          }
+          if (connected) setStatus('Connected ✓');
+        } else {
+          videoEl.src = '';
+          videoEl.srcObject = stream;
+          videoEl.muted = false;
+          setStatus('Speaking...');
+        }
+      },
+      onError(e) {
+        console.error(e);
+        setStatus('Error: ' + (e?.message ?? JSON.stringify(e)));
       }
     };
-    recognition.onerror = () => stopRecording();
-    recognition.onend   = () => stopRecording();
-  } else {
-    document.getElementById('mic-unsupported').style.display = 'block';
-  }
 
-  function startRecording() {
-    if (!recognition || isRecording) return;
-    isRecording = true;
-    micBtn.classList.add('recording');
-    micBtn.textContent  = '⏹';
-    inputEl.placeholder = 'Listening...';
-    inputEl.value       = '';
-    try { recognition.start(); } catch(e) { stopRecording(); }
-  }
-  function stopRecording() {
-    if (!isRecording) return;
-    isRecording = false;
-    micBtn.classList.remove('recording');
-    micBtn.textContent  = '🎤';
-    inputEl.placeholder = 'Type or tap 🎤 to speak…';
-    try { recognition.stop(); } catch(e) {}
-  }
-  micBtn.addEventListener('click', () => isRecording ? stopRecording() : startRecording());
-
-  // ── D-ID callbacks ──
-  const didCallbacks = {
-    onSrcObjectReady(value) {
-      stream = value;
-      videoEl.srcObject = value;
-      videoEl.muted = true;
-      videoEl.play().catch(e => dbg('video.play(): ' + e, true));
-    },
-    onConnectionStateChange(state) {
-      dbg('connection → ' + state);
-      setStatus(state);
-      if (state === 'connected') {
-        connected = true;
-        setReady(true);
-        setStatus('Connected ✓');
-      } else if (state === 'disconnected' || state === 'closed') {
-        connected = false;
-        setReady(false);
-        setStatus('Reconnecting...');
-        setTimeout(() => agentManager?.reconnect?.(), 3000);
-      } else if (state === 'failed') {
-        dbg('WebRTC failed. Possible causes:\n• CLIENT_KEY expired — regenerate in studio.d-id.com\n• D-ID plan: max sessions reached\n• Network blocking WebRTC (try different network)', true);
-        setStatus('Connection failed ✗');
-      }
-    },
-    onVideoStateChange(state) {
-      if (state === 'STOP') {
-        const idle = agentManager?.agent?.presenter?.idle_video;
-        if (idle) {
-          videoEl.srcObject = null;
-          videoEl.src       = idle;
-          videoEl.loop      = true;
-          videoEl.muted     = false;
-          videoEl.play().catch(() => {});
-        }
-        if (connected) setStatus('Connected ✓');
-      } else {
-        videoEl.src       = '';
-        videoEl.srcObject = stream;
-        videoEl.muted     = false;
-        setStatus('Speaking...');
-      }
-    },
-    onError(e) {
-      const msg = e?.message ?? JSON.stringify(e);
-      dbg('D-ID onError: ' + msg, true);
-      setStatus('Error — see box above');
-    }
-  };
-
-  // ── Boot the app ──
-  function bootApp(factory) {
-    setStatus('Connecting...');
-
-    factory(AGENT_ID, {
-      auth:          { type: 'key', clientKey: CLIENT_KEY },
-      callbacks:     didCallbacks,
-      streamOptions: { compatibilityMode: 'auto', streamWarmup: true }
-    })
-    .then(manager => {
-      agentManager = manager;
-      dbg('agentManager created → connect()');
-      return manager.connect();
-    })
-    .then(() => dbg('connect() OK ✓'))
-    .catch(e => {
-      const msg = e?.message ?? String(e);
-      dbg('D-ID init failed: ' + msg, true);
-      setStatus('Failed — retrying in 5s...');
-      setTimeout(() => bootApp(factory), 5000);
-    });
-  }
-
-  // ── Send message ──
-  async function send() {
-    const text = inputEl.value.trim();
-    if (!text || !connected) return;
-
-    inputEl.value = '';
-    setReady(false);
-    addMessage(text, 'user');
-
-    const thinkEl = document.createElement('div');
-    thinkEl.className   = 'msg msg-thinking';
-    thinkEl.textContent = 'Checking availability...';
-    chatArea.appendChild(thinkEl);
-    chatArea.scrollTop  = chatArea.scrollHeight;
-
-    videoEl.muted = false;
-
-    try {
-      const res = await fetch(N8N_WEBHOOK, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ messages: [{ role: 'user', content: text }], stream: false })
+    function init() {
+      setStatus('Connecting...');
+      createAgentManager(AGENT_ID, {
+        auth: { type: 'key', clientKey: CLIENT_KEY },
+        callbacks,
+        streamOptions: { compatibilityMode: 'auto', streamWarmup: true }
+      }).then(function(manager) {
+        agentManager = manager;
+        return agentManager.connect();
+      }).then(function() {
+        console.log('connect() done');
+      }).catch(function(e) {
+        setStatus('Failed — retrying...');
+        console.error(e);
+        setTimeout(init, 5000);
       });
-
-      if (!res.ok) throw new Error('n8n HTTP ' + res.status);
-      const data = await res.json();
-
-      let reply = data.reply
-               ?? data.output
-               ?? data.text
-               ?? data.message
-               ?? data.choices?.[0]?.message?.content;
-
-      if (reply) reply = reply.replace(/^=/, '').trim();
-      if (!reply) throw new Error('Empty reply — is n8n workflow active?');
-
-      removeThinking();
-      addMessage(reply, 'bot');
-
-      const speechText = shortenForVoice(reply);
-      await agentManager.speak({ type: 'text', input: speechText });
-      setStatus('Speaking...');
-
-    } catch(e) {
-      removeThinking();
-      dbg('send() error: ' + (e?.message ?? e), true);
-      addMessage('Sorry, something went wrong. Please try again.', 'bot');
-      setStatus('Error — see box above');
     }
 
-    setReady(true);
-  }
+    init();
 
-  btnEl.addEventListener('click', send);
-  inputEl.addEventListener('keydown', e => {
-    if (e.key === 'Enter') { e.preventDefault(); send(); }
-  });
-</script>
+    async function send() {
+      const text = inputEl.value.trim();
+      if (!text || !connected) return;
+      inputEl.value = '';
+      setReady(false);
+
+      addMessage(text, 'user');
+
+      const thinkEl = document.createElement('div');
+      thinkEl.className = 'msg msg-thinking';
+      thinkEl.textContent = 'Checking availability...';
+      chatArea.appendChild(thinkEl);
+      chatArea.scrollTop = chatArea.scrollHeight;
+
+      videoEl.muted = false;
+
+      try {
+        const res = await fetch(N8N_WEBHOOK, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            messages: [{ role: 'user', content: text }],
+            stream: false
+          })
+        });
+        const data = await res.json();
+
+        let reply = data.reply ?? data.output ?? data.text ?? data.message
+                 ?? data.choices?.[0]?.message?.content;
+        if (reply) reply = reply.replace(/^=/, '').trim();
+        if (!reply) throw new Error('No reply from assistant');
+
+        removeThinking();
+        addMessage(reply, 'bot');
+
+        const speechText = shortenForVoice(reply);
+        await agentManager.speak({ type: 'text', input: speechText });
+        setStatus('Speaking...');
+
+      } catch(e) {
+        removeThinking();
+        addMessage('Sorry, something went wrong. Please try again.', 'bot');
+        setStatus('Error');
+        console.error(e);
+      }
+      setReady(true);
+    }
+
+    btnEl.addEventListener('click', send);
+    inputEl.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); send(); }
+    });
+  </script>
 </body>
 </html>
