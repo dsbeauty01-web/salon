@@ -1,101 +1,125 @@
 <script type="module">
-document.addEventListener("DOMContentLoaded", () => {
+import { createAgentManager } from 'https://esm.sh/@d-id/client-sdk@1.1.53';
 
-import { createAgentManager } from 'https://esm.sh/@d-id/client-sdk';
-
-const AGENT_ID    = 'v2_agt_Z7uYXWFx';
+const data-agent-id= "v2_agt_Z7uYXWFx"
 const CLIENT_KEY  = 'Z29vZ2xlLW9hdXRoMnwxMDg1MzgzODIxMDg4OTU5MjE2MzA6dUtILVVlUFhjeFNUZS1lNjV2VG5t';
 const N8N_WEBHOOK = 'https://rafa5555.app.n8n.cloud/webhook/salon-bot/v1/chat/completions';
 
 const videoEl   = document.getElementById('avatar-video');
 const inputEl   = document.getElementById('user-input');
 const btnEl     = document.getElementById('send-btn');
+const micBtn    = document.getElementById('mic-btn');
 const statusEl  = document.getElementById('status');
 const chatArea  = document.getElementById('chat-area');
 
-if (!statusEl || !btnEl) {
-  console.error("DOM not loaded properly");
-  return;
-}
-
 let agentManager = null;
-let connected = false;
+let connected    = false;
+let stream       = null;
 
-function setStatus(s){ statusEl.textContent = s; }
-function setReady(v){
-  inputEl.disabled = !v;
-  btnEl.disabled = !v;
+function setStatus(s) { statusEl.textContent = s; }
+function setReady(yes) {
+  inputEl.disabled = !yes;
+  btnEl.disabled   = !yes;
+  micBtn.disabled  = !yes;
 }
 
-function addMessage(text, type){
+function addMessage(text, type) {
   const div = document.createElement('div');
   div.className = 'msg msg-' + type;
   div.textContent = text;
   chatArea.appendChild(div);
+  chatArea.scrollTop = chatArea.scrollHeight;
 }
 
 const callbacks = {
-  onConnectionStateChange(state){
-    console.log("DID STATE:", state);
+  onSrcObjectReady(value) {
+    stream = value;
+    videoEl.srcObject = value;
+    videoEl.muted = true;
+    videoEl.play().catch(() => {});
+  },
+  onConnectionStateChange(state) {
     setStatus(state);
-    if(state === 'connected'){
+    if (state === 'connected') {
       connected = true;
       setReady(true);
+      setStatus('Connected ✓');
     }
   },
-  onError(e){
-    console.error("DID ERROR:", e);
+  onVideoStateChange(state) {
+    if (state !== 'STOP') {
+      videoEl.srcObject = stream;
+      videoEl.muted = false;
+      setStatus('Speaking...');
+    }
+  },
+  onError(e) {
+    console.error(e);
     setStatus('Error');
   }
 };
 
-async function init(){
+function init() {
   setStatus('Connecting...');
-  try{
-    agentManager = await createAgentManager(AGENT_ID, {
-      auth: { type: 'key', clientKey: CLIENT_KEY },
-      callbacks
-    });
-    await agentManager.connect();
-  }catch(e){
-    console.error(e);
+  createAgentManager(AGENT_ID, {
+    auth: { type: 'key', clientKey: CLIENT_KEY },
+    callbacks
+  })
+  .then(manager => {
+    agentManager = manager;
+    return agentManager.connect();
+  })
+  .catch(e => {
     setStatus('Failed');
-  }
+    console.error(e);
+  });
 }
 
 init();
 
-btnEl.addEventListener('click', async () => {
+async function send() {
   const text = inputEl.value.trim();
-  if(!text || !connected) return;
+  if (!text || !connected) return;
 
   inputEl.value = '';
+  setReady(false);
+
   addMessage(text, 'user');
 
-  try{
+  try {
     const res = await fetch(N8N_WEBHOOK, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        messages: [{ role: 'user', content: text }]
+        messages: [{ role: 'user', content: text }],
+        stream: false
       })
     });
 
     const data = await res.json();
-    console.log("N8N:", data);
 
-    const reply = data.reply || data.output || data.text;
+    let reply = data.reply ?? data.output ?? data.text ?? data.message
+             ?? data.choices?.[0]?.message?.content;
 
-    addMessage(reply || "No reply", 'bot');
+    if (!reply) throw new Error('No reply');
 
-    if(reply){
-      await agentManager.speak({ type: 'text', input: reply });
-    }
+    addMessage(reply, 'bot');
 
-  }catch(e){
+    await agentManager.speak({
+      type: 'text',
+      input: reply
+    });
+
+  } catch (e) {
     console.error(e);
+    addMessage('Error, try again', 'bot');
   }
-});
 
+  setReady(true);
+}
+
+btnEl.addEventListener('click', send);
+inputEl.addEventListener('keydown', e => {
+  if (e.key === 'Enter') send();
 });
 </script>
