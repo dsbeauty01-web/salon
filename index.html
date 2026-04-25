@@ -1,4 +1,6 @@
 <script type="module">
+document.addEventListener("DOMContentLoaded", () => {
+
 import { createAgentManager } from 'https://esm.sh/@d-id/client-sdk';
 
 const AGENT_ID    = 'v2_agt_Z7uYXWFx';
@@ -10,6 +12,11 @@ const inputEl   = document.getElementById('user-input');
 const btnEl     = document.getElementById('send-btn');
 const statusEl  = document.getElementById('status');
 const chatArea  = document.getElementById('chat-area');
+
+if (!statusEl || !btnEl) {
+  console.error("DOM not loaded properly");
+  return;
+}
 
 let agentManager = null;
 let connected = false;
@@ -25,7 +32,6 @@ function addMessage(text, type){
   div.className = 'msg msg-' + type;
   div.textContent = text;
   chatArea.appendChild(div);
-  chatArea.scrollTop = chatArea.scrollHeight;
 }
 
 const callbacks = {
@@ -35,7 +41,6 @@ const callbacks = {
     if(state === 'connected'){
       connected = true;
       setReady(true);
-      setStatus('Connected ✓');
     }
   },
   onError(e){
@@ -52,7 +57,6 @@ async function init(){
       callbacks
     });
     await agentManager.connect();
-    console.log("DID CONNECTED");
   }catch(e){
     console.error(e);
     setStatus('Failed');
@@ -61,7 +65,7 @@ async function init(){
 
 init();
 
-async function send(){
+btnEl.addEventListener('click', async () => {
   const text = inputEl.value.trim();
   if(!text || !connected) return;
 
@@ -78,30 +82,20 @@ async function send(){
     });
 
     const data = await res.json();
-    console.log("N8N RAW:", data);
+    console.log("N8N:", data);
 
-    const reply = data.reply 
-      || data.output 
-      || data.text 
-      || data.choices?.[0]?.message?.content;
+    const reply = data.reply || data.output || data.text;
 
-    if(!reply) throw new Error("No reply");
+    addMessage(reply || "No reply", 'bot');
 
-    addMessage(reply, 'bot');
-
-    await agentManager.speak({
-      type: 'text',
-      input: reply
-    });
+    if(reply){
+      await agentManager.speak({ type: 'text', input: reply });
+    }
 
   }catch(e){
-    console.error("N8N ERROR:", e);
-    addMessage("Error, try again", 'bot');
+    console.error(e);
   }
-}
+});
 
-btnEl.addEventListener('click', send);
-inputEl.addEventListener('keydown', e=>{
-  if(e.key === 'Enter') send();
 });
 </script>
